@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Dpfr</string>
+    <string name="tile_label">Dpfr</string>
+    <string name="widget_small_label">Dpfr small</string>
+    <string name="widget_medium_label">Dpfr medium</string>
+    <string name="widget_small_desc">One-tap start and stop for your last prank.</string>
+    <string name="widget_medium_desc">Four favorite pranks and a stop button.</string>
+    <string name="sc_stop_short">Stop all</string>
+    <string name="sc_stop_long">Stop all pranks</string>
+</resources>
