@@ -1,0 +1,82 @@
+name: Extract Dpfr.zip into repo
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'Dpfr.zip'
+      - '.github/workflows/extract-zip.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: extract-dpfr-zip
+  cancel-in-progress: false
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check that Dpfr.zip exists
+        run: |
+          if [ ! -f Dpfr.zip ]; then
+            echo "::error::Dpfr.zip was not found in the repo root. Upload it, then run this workflow again."
+            exit 1
+          fi
+
+      - name: Extract into a temporary folder
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/dpfr
+          mkdir -p /tmp/dpfr
+          unzip -q Dpfr.zip -d /tmp/dpfr
+          rm -rf /tmp/dpfr/__MACOSX
+          # GITHUB_TOKEN is not allowed to change workflow files, so never copy them.
+          rm -rf /tmp/dpfr/.github/workflows
+          # If the zip has a single top folder, use its content instead.
+          if [ "$(ls -A /tmp/dpfr | wc -l)" = "1" ] && [ -d "/tmp/dpfr/$(ls -A /tmp/dpfr)" ]; then
+            echo "Single top folder found. Using its content."
+            mv "/tmp/dpfr/$(ls -A /tmp/dpfr)" /tmp/dpfr_inner
+            rm -rf /tmp/dpfr
+            mv /tmp/dpfr_inner /tmp/dpfr
+          fi
+
+      - name: Verify the zip content
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in settings.gradle.kts build.gradle.kts gradle.properties app/build.gradle.kts \
+                   app/src/main/AndroidManifest.xml \
+                   app/src/main/java/com/dpfr/app/MainActivity.kt \
+                   app/src/main/java/com/dpfr/app/overlay/OverlayService.kt; do
+            if [ ! -f "/tmp/dpfr/$f" ]; then
+              echo "::error::Missing in zip: $f"
+              missing=1
+            fi
+          done
+          [ "$missing" = "0" ] || exit 1
+          echo "Files found in zip: $(find /tmp/dpfr -type f | wc -l)"
+
+      - name: Copy files into the repo
+        run: |
+          set -euo pipefail
+          cp -a /tmp/dpfr/. ./
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- . ':!Dpfr.zip' ':!.github/workflows/extract-zip.yml'
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit. Files are already in the repo."
+          else
+            git commit -m "Extract Dpfr.zip project files"
+            git push
+          fi
+          echo "Committed files:"
+          git ls-files | wc -l
